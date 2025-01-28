@@ -6,6 +6,7 @@ import random
 
 from collections import deque
 
+from board import Board
 from board import play_game
 from board import random_move
 from board import (X_WIN, O_WIN)
@@ -40,15 +41,17 @@ class TTTNet(nn.Module):
 
 
 # Train the network againt random play
-def random_train(network, total_games=1000000):
+def random_train(network, total_games=100000):
   optimizer = torch.optim.SGD(network.parameters(), lr=0.01)
+  loss_fn = nn.MSELoss()
   epsilon = 1
-  epsilon_decay = 0.95
+  epsilon_decay = 0.995
 
   # Loop for each game played
   for game in range(total_games):
     moves = deque()
-    board = play_game(training_move(epsilon=epsilon, moves=moves), random_move)
+    nn_player = training_move(network=network, moves=moves, epsilon=epsilon)
+    board = play_game(nn_player, random_move)
 
     result = board.game_result()
     game_value = 0.5
@@ -58,14 +61,14 @@ def random_train(network, total_games=1000000):
       game_value = 0
 
     while moves:
-      move = move.pop()
-      tensor_board = torch.FloatTensor(board)
+      board_state, move = moves.pop()
+      tensor_board = torch.FloatTensor(board_state.board)
       target = network(tensor_board).detach()
       target[move] = game_value
 
       output = network(tensor_board)
       optimizer.zero_grad()
-      loss = nn.MSELoss(output, target)
+      loss = loss_fn(output, target)
       loss.backward()
       optimizer.step()
     
@@ -74,10 +77,13 @@ def random_train(network, total_games=1000000):
 
 
 # Play move chosen by NN and store board state + move index into moves
-def training_move(board, network, moves, epsilon):
-  move = get_move_index(board, network, epsilon)
-  moves.append(board, move)
-  return board.play_move(move)
+def training_move(network, moves, epsilon):
+  def play(board):
+    move = get_move_index(board, network, epsilon)
+    moves.append((board, move))
+    return board.play_move(move)
+  
+  return play
 
 
 # Select move to play
@@ -87,8 +93,8 @@ def get_move_index(board, network, epsilon):
   if rand < epsilon:
     return random.choice(valid_moves)
 
-  tensor_board = torch.FloatTensor(board)
-  q_values = network(board).detach()
+  tensor_board = torch.FloatTensor(board.board)
+  q_values = network(tensor_board).detach()
   valid_q_values = q_values[valid_moves]
   return valid_moves[torch.argmax(valid_q_values).item()]
 
@@ -97,5 +103,4 @@ def get_move_index(board, network, epsilon):
 def nn_move(board, network, epsilon=0):
   move = get_move_index(board, network, epsilon)
   return board.play_move(move)
-
 
