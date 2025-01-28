@@ -119,7 +119,7 @@ class Board:
         else:
           txt += " "
 
-        if ((pos % 3) == 2):
+        if ((pos % SIZE) == 2):
           txt += "\n"
         else:
           txt += "|"
