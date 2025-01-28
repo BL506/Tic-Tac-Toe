@@ -6,7 +6,6 @@ import random
 
 from collections import deque
 
-from board import Board
 from board import play_game
 from board import random_move
 from board import (X_WIN, O_WIN)
@@ -50,8 +49,7 @@ def random_train(network, total_games=100000):
   # Loop for each game played
   for game in range(total_games):
     moves = deque()
-    nn_player = training_move(network=network, moves=moves, epsilon=epsilon)
-    board = play_game(nn_player, random_move)
+    board = play_game(training_move(network, moves, epsilon), random_move)
 
     result = board.game_result()
     game_value = 0.5
@@ -100,7 +98,9 @@ def get_move_index(board, network, epsilon):
 
 
 # Play best move from pre-trained model
-def nn_move(board, network, epsilon=0):
-  move = get_move_index(board, network, epsilon)
-  return board.play_move(move)
+def nn_move(network, epsilon=0):
+  def play(board):
+    move = get_move_index(board, network, epsilon)
+    return board.play_move(move)
 
+  return play
